@@ -1,0 +1,465 @@
+---
+title: "Bellabeat Case Study"
+output: html_notebook
+---
+## Author: Osime Philip Aiwaneose
+### Date: 31/03/2022
+
+# Introduction
+This is a data analysis project to analysis data from a health and fitness company named Bellabeat.I am working as a Junior Analyst at Bellabeat.This company is a fictional company data from Google Data analytics Professional Certificate capstone project.
+
+## Business Task
+*    What are the trends identified in smart device usage?
+*    How could these trends apply to Bellabeat customers?
+*    How could these trends help influence Bellabeat marketing strategy?
+
+
+## Stakeholders
++ Urska Srsen: Bellabeat's co-founder and Chief Creative Officer.
++ Sando Mur: Mathematician and Bellabeat's co-founder; key member of the Bellabeat executive team.
++ Bellabeat marketing analytics team: A team of data analysts responsible for the collecting, analyzing, and reporting data that helps guide Bellabeat's marketing strategy.
+
+## Dataset 
+The data source for this project is made available through Mobius [FitBit Fitness Tracker Datacd](https://www.kaggle.com/datasets/arashnic/fitbit). The Owner has dedicated the work to the public domain by waiving all of his or her right to the work worldwide under copyright law, including all related and neighboring rights, to the extent allowed by law.
+
+## Data Integrity
+This data is limited and prone to sampling bias due to ghe same size of 33 users and no demographic data. Aditionally, the data is 5 years old and only collected from a limited time frame of 31 days.
+```{r}
+
+```
+
+### 1.Install and loading data cleaning and data visualization
+```{r}
+install.packages('tidyverse')
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
+library(tinytex)
+library(janitor)
+```
+
+### 2. Read cvs files
+```{r}
+Daily_Activity_df <- read_csv('dailyActivity_merged.csv')
+Daily_Calories <- read_csv('dailyCalories_merged.csv')
+Daily_Intensities <- read_csv('dailyIntensities_merged.csv')
+Daily_Steps <- read_csv('dailySteps_merged.csv')
+
+Heartrate_Sec <- read_csv('heartrate_seconds_merged.csv')
+HourlCalories <- read_csv('hourlyCalories_merged.csv')
+Hourly_Steps <- read_csv('hourlySteps_merged.csv')
+Minutes_Calories_Narrow <- read_csv('minuteCaloriesNarrow_merged.csv')
+Minutes_Calories_Wide <- read_csv('minuteCaloriesWIde_merged.csv')
+Minutes_Intensities_Narrow <-read_csv('minuteIntensitiesNarrow_merged.csv')
+Minutes_Intensites_wide <- read_csv('minuteIntensitiesWide_merged.csv')
+Minute_METsNarrow <- read_csv('minuteMETsNarrow_merged.csv')
+Minutes_Sleep <- read_csv('minuteSleep_merged.csv')
+MinuteSteps_Narrow <- read_csv('minuteStepsNarrow_merged.csv')
+MinutesSteps_Wide <- read_csv('minuteStepsWide_merged.csv')
+SleepDay <- read_csv('sleepDay_merged.csv')
+weightLog_Info <- read_csv('weightLogInfo_merged.csv')
+
+```
+```{r}
+# I will preview the datasets to determine how to proceed with cleaning and merging for analysis.
+View(Daily_Activity_df)
+str(Daily_Activity_df)
+
+
+View(Hourly_Steps)
+str(Hourly_Steps)
+
+View(SleepDay)
+str(SleepDay)
+```
+## 3. Cleaning and Formatting
+```{r}
+# Check and remove duplicates
+
+Daily_Activity_df %>% duplicated() %>% sum()
+
+Hourly_Steps %>% duplicated() %>% sum()
+
+SleepDay %>% duplicated() %>% sum()
+
+```
+```{r}
+# remove duplicated entries from Sleep Day and verify they have been removed.
+sleep_day <- SleepDay %>%
+  distinct() %>% drop_na()
+
+sleep_day %>%
+  duplicated() %>%
+  sum()
+
+```
+```{r}
+# verify distinct users
+
+n_distinct(Daily_Activity_df$Id)
+n_distinct(Hourly_Steps$Id)
+n_distinct(sleep_day$Id)
+```
+## 4. Cleaning, Renaming and Formatting Columns
+```{r}
+ # change all columns to lower case so that they are in the format.
+Daily_Activity_df <- clean_names(Daily_Activity_df)
+Daily_Activity_df <- rename_with(Daily_Activity_df, tolower)
+Hourly_Steps <- clean_names(Hourly_Steps)
+Hourly_Steps <- rename_with(Hourly_Steps, tolower)
+SleepDay <- clean_names(SleepDay)
+SleepDay<- rename_with(SleepDay, tolower)
+
+```
+## 5. Rename Columns with date informations to date
+
+```{r}
+Daily_Activity_df <- Daily_Activity_df %>%
+  rename(date =activity_date )
+Hourly_Steps <- Hourly_Steps %>%
+  rename(date = activity_hour)
+
+SleepDay <- SleepDay %>%
+  rename(date = sleep_day)
+
+```
+
+```{r}
+# formatting the date column to be of date (datatype). For hourly steps dataframe i will format the time to 24hours.
+
+Daily_Activity_df <- Daily_Activity_df %>%
+  mutate(date = as.Date(date,format = "%m/%d/%Y"))
+
+Hourly_Steps <- Hourly_Steps %>%
+  mutate(date = as.POSIXct(date, format = "%m/%d/%Y %I:%M:%S %p" , tz = Sys.timezone()))
+
+SleepDay <- SleepDay %>%
+  mutate(date = as.Date(date,format = "%m/%d/%Y %I:%M:%S %p" , tz = Sys.timezone()))
+
+Hourly_Steps <- Hourly_Steps %>%
+  separate(date, into = c ("date","time"), sep =" ")
+
+
+```
+## 6. Merging dataframes
+```{r}
+# merging the daily activity data with the steps data for the use in later analysis of user habits by time 
+steps_sleep_data <- merge(Daily_Activity_df, SleepDay, by = c('id','date'))
+head(steps_sleep_data)
+```
+## 7. Analyze and Share Phase 
+### 7.1 Analyzing step and sleep usage
++ Categories set up based on usage are :
++ Low usage: < 10 days
++ Moderate Usage : 10 to 20 days 
++ High Usage : 20 days or more
+```{r}
+ step_days_active <- Daily_Activity_df %>%
+  group_by(id) %>%
+  summarize(days_active = n_distinct(date))
+
+step_active_categories <- step_days_active %>%
+  mutate (usage = case_when(
+    days_active <= 10 ~'Low Use',
+    days_active > 10 & days_active <= 20 ~ 'Moderate Use',
+    days_active > 20 ~ 'High Use')) %>%
+  group_by(usage) %>%
+  summarize(count = n()) %>%
+  mutate(percent = count / sum(count)) %>%
+  mutate(chart_labels = scales::percent(percent))
+
+step_active_categories$usage <- ordered(step_active_categories$usage, levels = c("Low Use","Moderate Use", "High Use"))
+
+step_active_categories
+
+  
+
+```
+## 7.2 Sleep usage
+I will analyze sleep usage in the same way as step usage above.
+
+Reminder:
+
++ Low Use: Less than 10 days
++ Moderate Use: 10 to 20 days
++   High Use: 20 days or more
+```{r}
+sleep_day_active <-sleep_day %>%
+  group_by(Id) %>%
+  summarize(days_active = n())
+
+sleep_active_categories <- sleep_day_active %>%
+    mutate(usage = case_when(
+    days_active <= 10 ~ 'Low Use',
+    days_active >10 & days_active <=20 ~ 'Moderate Use',
+    days_active >20 ~ 'High Use')) %>%
+    group_by(usage) %>%
+    summarize(count = n()) %>%
+    mutate(percent = count / sum(count)) %>%
+    mutate(chart_labels = scales::percent(percent))
+
+sleep_active_categories$usage <-ordered(sleep_active_categories$usage, levels=c("Low Use", "Moderate Use", "High Use"))
+
+sleep_active_categories
+
+```
+## 7.3 Step and sleep usages directly compared 
+I will create a pie chart for the usage of each type of device functionality to visually compare how much the devices are being used for steps and for sleep.
+```{r}
+# step use pie chart
+step_use_pie_chart <- ggplot(data = step_active_categories, aes(x="",y=count, fill=usage)) +
+  geom_bar(stat = "identity", width = 1, color='black')+
+  coord_polar("y", start=0)+
+  theme_minimal()+
+  theme(axis.title.x= element_blank(),
+        axis.title.y = element_blank(),
+        panel.border = element_blank(), 
+        panel.grid = element_blank(), 
+        axis.ticks = element_blank(),
+        axis.text.x = element_blank(),
+        plot.title = element_text(hjust = 0.5, size=14, face = "bold")) +
+  scale_fill_manual(values = c("#85e085","#e6e600", "#ffd480", "#ff8080")) +
+  geom_text(aes(label = chart_labels),
+            position = position_stack(vjust = 0.5))+
+  labs(title="Device Usage for Steps")
+
+# sleep pie chart
+sleep_use_pie_chart <- ggplot(data = sleep_active_categories, aes(x="",y=count, fill=usage)) +
+  geom_bar(stat = "identity", width = 1, color="black")+
+  coord_polar("y", start=0)+
+  theme_minimal()+
+  theme(axis.title.x= element_blank(),
+        axis.title.y = element_blank(),
+        panel.border = element_blank(), 
+        panel.grid = element_blank(), 
+        axis.ticks = element_blank(),
+        axis.text.x = element_blank(),
+        plot.title = element_text(hjust = 0.5, size=14, face = "bold")) +
+  scale_fill_manual(values = c("#85e085","#e6e600", "#ffd480", "#ff8080")) +
+  geom_text(aes(label = chart_labels),
+            position = position_stack(vjust = 0.5)) +
+  labs(title="Device Usage for Sleep")
+step_use_pie_chart
+sleep_use_pie_chart
+
+# steps and sleep pie charts together
+#ggarrange(step_use_pie_chart, sleep_use_pie_chart,nrow = 1, ncol = 2)
+```
+The visuals show that more users are using their devices to track steps than sleep. 87.9% of users have high use for tracking steps while 50% of users have high use for sleep.
+
+## 7.4 Analyzing steps and sleep usage by weekday
+
+I will first analyze how much devices were used for steps by weekday. To complete this analysis I will:
+
++ Use the weekdays function to determine the weekday of the dates in the data.
++ Group by day and aggregate
++ Create a weekday order and sort by weekday.
+```{r}
+daily_activity <- Daily_Activity_df %>%
+    mutate(day = weekdays(as.Date(date, format = "%m/%d/%Y")))
+step_activity_by_day <- daily_activity %>%
+    group_by(day) %>%
+    summarize(days_used = n()) %>%
+    arrange(day)
+
+step_activity_by_day$day <-ordered(step_activity_by_day$day, levels=c("Monday", "Tuesday", "Wednesday", "Thursday",
+"Friday", "Saturday", "Sunday"))
+
+step_activity_by_day <- step_activity_by_day %>%
+    arrange(day)
+
+step_activity_by_day
+```
+I will analyze device usage for sleep by weekday with a similar process.
+
+```{r}
+sleep_day <- sleep_day %>%
+  rename(date= SleepDay)
+sleep_daily_activity <- sleep_day %>%
+  mutate(day = weekdays(as.Date(date, format = "%m/%d/%Y")))
+
+sleep_activity_by_day <- sleep_daily_activity %>%
+    group_by(day) %>%
+    summarize(days_used = n()) %>%
+    arrange(day)
+
+sleep_activity_by_day$day <-ordered(sleep_activity_by_day$day, levels=c("Monday", "Tuesday", "Wednesday", "Thursday",
+"Friday", "Saturday", "Sunday"))
+
+sleep_activity_by_day <- sleep_activity_by_day %>%
+    arrange(day)
+sleep_activity_by_day
+```
+Next,I will use bar chart to visualize the data with bar charts for each type of usage that show how many times users used their devices on each weekday.
+```{r}
+step_activity_by_day_bar_graph <- ggplot(data = step_activity_by_day) +
+    geom_col(aes(x=day, y=days_used), fill='steelblue') +
+    geom_text(aes(x=day, y=days_used, label = days_used), vjust = 1.5, colour = "white") +
+    labs(title = "Device Use for Steps by Weekday", x= "", y = "") +
+    theme(axis.text.x = element_text(angle = 45,vjust = 0.5, hjust = 1))
+
+# bar chart for sleep activity
+sleep_activity_by_day_bar_graph <- ggplot(data = sleep_activity_by_day) +
+    geom_col(aes(x=day, y=days_used), fill='maroon') +
+    geom_text(aes(x=day, y=days_used, label = days_used), vjust = 1.5, colour = "white") +
+    labs(title = "Device Use for Sleep by Weekday", x= "", y = "") +
+    theme(axis.text.x = element_text(angle = 45,vjust = 0.5, hjust = 1))
+step_activity_by_day_bar_graph
+sleep_activity_by_day_bar_graph
+```
+The bar graphs show the most active days were in the middle of the week on Tuesdays, Wednesdays and Thursdays. The least active days were Friday through Monday.
+
+## 7.5 Analyzing steps and sleep totals by weekday 
+I will take the steps and sleep data that has been merged into a dataframe and perform the following for analysis:
+
++ determine the day of the week for each date in the table
++ find the average steps and sleep for each weekday
++ visualize average steps and sleep by weekday in two bar charts
+
+```{r}
+steps_sleep_data <- steps_sleep_data %>%
+    mutate(day = weekdays(as.Date(date, format = "%m/%d/%Y")))
+
+avg_steps_and_sleep <- steps_sleep_data %>%
+    group_by(day) %>%
+    summarize(avg_steps = mean(total_steps), avg_sleep = mean(total_minutes_asleep / 60)) #convert minutes asleep to hours asleep
+
+avg_steps_and_sleep$day <- ordered(avg_steps_and_sleep$day, levels=c("Monday", "Tuesday", "Wednesday", "Thursday",
+"Friday", "Saturday", "Sunday"))
+
+avg_steps_and_sleep <- avg_steps_and_sleep %>%
+arrange(day)
+
+avg_steps_and_sleep
+```
+I will plot a graph to show the average sleep by weekdays.
+```{r}
+steps_by_day_bar_graph <- ggplot(avg_steps_and_sleep) +
+    geom_col(aes(x=day, y=avg_steps), fill='steelblue') +
+    geom_hline(yintercept = 7500) +
+    geom_text(aes(x=day, y=avg_steps, label=''), vjust = 1.5, colour = "white") +
+    labs(title = "Average Steps by Weekday", x= "", y = "") +
+    theme(axis.text.x = element_text(angle = 45,vjust = 0.5, hjust = 1))
+
+sleep_by_day_bar_graph <- ggplot(avg_steps_and_sleep) +
+    geom_col(aes(x=day, y=avg_sleep), fill='maroon') +
+    geom_hline(yintercept = 8) +
+    geom_text(aes(x=day, y=avg_sleep, label=''), vjust = 1.5, colour = "white") +
+    labs(title = "Average Sleep by Weekday", x= "", y = "") +
+    theme(axis.text.x = element_text(angle = 45,vjust = 0.5, hjust = 1))
+steps_by_day_bar_graph 
+sleep_by_day_bar_graph
+```
+The bar graph for average steps by weekday shows that users are, on average, meeting the recommended 7,500 steps per day.
+
+The bar graph for average sleep per day shows that users are, on average, not getting the recommended 8 hours of sleep a night.
+
+## 7.6 Analyzing step achievement levels 
+I will analyze the amount of steps users achieve each day and how they can be classified according to the following 4 categories:
++ Sedentary: less than 5,000 steps per day
++ Lightly Active: 5,000 to 7,499 steps per day
++ Fairly Active: 7,500 to 9,999 steps per day
++ Highly Active: more than 10,000 steps per day
+
+```{r}
+step_categories <- daily_activity %>%
+    filter(total_steps != 0) %>% #don't include days the device was not used
+    mutate(activity_level = case_when(
+        total_steps < 5000 ~ 'Sedentary',
+        total_steps >= 5000 & total_steps <=7499 ~ 'Lightly Active',
+        total_steps >= 7500 & total_steps <=9999 ~ 'Fairly Active',
+        total_steps >= 1000 ~ 'Very Active',)) %>%
+    select(id, total_steps, activity_level)
+
+step_category_distribution <- step_categories %>%
+    group_by(activity_level) %>%
+    summarize(total = n()) %>%
+    mutate(percent = total / sum(total)) %>%
+    mutate(chart_labels = scales::percent(percent))
+
+step_category_distribution$activity_level <-ordered(step_category_distribution$activity_level, levels=c("Sedentary", "Lightly Active", "Fairly Active", "Very Active"))
+step_category_distribution <- step_category_distribution %>%
+    arrange(activity_level)
+
+step_category_distribution
+```
+```{r}
+step_category_pie_chart <- ggplot(data = step_category_distribution, aes(x="",y=total, fill=activity_level)) +
+  geom_bar(stat = "identity", width = 1, color='White')+
+  coord_polar("y", start=0)+
+  theme_minimal()+
+  theme(axis.title.x= element_blank(),
+        axis.title.y = element_blank(),
+        panel.border = element_blank(), 
+        panel.grid = element_blank(), 
+        axis.ticks = element_blank(),
+        axis.text.x = element_blank(),
+        plot.title = element_text(hjust = 0.5, size=14, face = "bold")) +
+  scale_fill_manual(values = c("#ff8080", "#ffd480", "#e6e600", "#85e085")) +
+  geom_text(aes(label = chart_labels),
+            position = position_stack(vjust = 0.5))+
+  labs(title="Daily Step Activity Level")
+step_category_pie_chart
+```
+Based on the breakdown of step activity levels it appears that a range of users use the devices. There is not a strong majority of light or active users.
+
+## 7.7 Analyzing how much of the day users wear devices 
+I will analyze how much of the day users wear devices by categorizing them into 3 usage categories:
+
+Less than 12 hours
+12 to 18 hours
+All day (24 hours)
+```{r}
+time_wearing_device <- daily_activity %>%
+    mutate(total_time_worn = very_active_minutes + fairly_active_minutes + lightly_active_minutes + sedentary_minutes) %>%
+    select(id, date, total_time_worn) %>%
+    mutate(percent_of_day_worn = total_time_worn / 1440)
+
+time_worn_stats <- time_wearing_device %>%
+    mutate(category = case_when(
+        percent_of_day_worn > 0 & percent_of_day_worn <= 0.50 ~ 'Less Than 12 Hours',
+        percent_of_day_worn > 0.50 & percent_of_day_worn <= 0.75 ~ '12 to 18 Hours',
+        percent_of_day_worn > 0.75 ~ 'All Day'))
+
+time_worn_categories <- time_worn_stats %>%
+    group_by(category) %>%
+    summarize(total = n()) %>%
+    mutate(percent_of_users = total / sum(total)) %>%
+    mutate(chart_labels = scales::percent(percent_of_users))
+
+time_worn_categories$category <- ordered(time_worn_categories$category, levels=c("Less Than 12 Hours", "12 to 18 Hours", "All Day"))
+
+time_worn_categories <- time_worn_categories %>%
+    arrange(category)
+
+time_worn_categories
+
+```
+## 7.8 Analysis of Active User by time of day
+
+To analyze what time throughout the day users are active, I will group the hourly steps data by time, calculate the average steps for those times, and visualize the distribution with a bar chart.
+
+```{r}
+avg_steps_by_time <- Hourly_Steps %>%
+    group_by(time) %>%
+    summarize(steps = mean(step_total))
+
+avg_steps_by_time_bar_graph <- ggplot(data=avg_steps_by_time) +
+    geom_col(mapping=aes(x=time, y=steps, fill=steps)) +
+    labs(title = "Steps by Time", x= "") +
+    theme(axis.text.x = element_text(angle = 90,vjust = 0.5, hjust = 1))
+avg_steps_by_time_bar_graph
+```
+The distribution of average steps throughout the day appears to be bi-modal with peaks happening at about noon and 6 PM each day. Night time hours have less step activity as we would expect that users are sleeping.
+
+
+## 8. Conclusion and Recommendation
+  +  #### Users hit the step goal for every day except on sunday.
+  +  #### Users are not meeting the minimum recommended sleep hours daily.
+       - #### I would recommend giving daily update of the daily sleep rate and how this can affect their performance during the day.
+  +  #### It was observe from the daily steps activity tracker that about 55% of the users are active users. I would recommend growing this user base by offering referral bonus to users who can register new users.
+  
+## Reference
+1. Bellabeat Case Study by [Taylor Stringe](https://www.kaggle.com/code/taylorstringe/bellabeat-case-study).
+2. Google Data analytics Capstone Project coursera.
+3.
