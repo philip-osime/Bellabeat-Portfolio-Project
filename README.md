@@ -23,3 +23,6 @@ The data source for this project is made available through Mobius [FitBit Fitnes
 
 ## Data Integrity
 This data is limited and prone to sampling bias due to ghe same size of 33 users and no demographic data. Aditionally, the data is 5 years old and only collected from a limited time frame of 31 days.
+
+## Portfolio Rpub for full rendered Project
+Portoflio project on Rpubs shows the project on html and also the visualization.*[Bellabeat portofolio]*(https://rpubs.com/Donphosa/884602)
