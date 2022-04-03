@@ -12,7 +12,7 @@ This is a data analysis project to analysis data from a health and fitness compa
 *    How could these trends apply to Bellabeat customers?
 *    How could these trends help influence Bellabeat marketing strategy?
 
-![](/Bellabeat-Portfolio-Project/Bellabeats.png)
+![](https://github.com/philip-osime/Bellabeat-Portfolio-Project/blob/main/Bellabeats.png)
 
 
 ## Stakeholders
